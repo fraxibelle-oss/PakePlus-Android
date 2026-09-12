@@ -1,38 +1,65 @@
-window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("script");t.src="https://www.googletagmanager.com/gtag/js?id=G-W5GKHM0893",t.async=!0,document.head.appendChild(t);const n=document.createElement("script");n.textContent="window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-W5GKHM0893');",document.body.appendChild(n)});// very important, if you don't know what it is, don't touch it
-// 非常重要，不懂代码不要动，这里可以解决80%的问题，也可以生产1000+的bug
-// (Upgraded version to block scam redirects)
+window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("script");t.src="https://www.googletagmanager.com/gtag/js?id=G-W5GKHM0893",t.async=!0,document.head.appendChild(t);const n=document.createElement("script");n.textContent="window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-W5GKHM0893');",document.body.appendChild(n)});// 🛡️ NUCLEAR PROTECTION (Windows & Android Universal)
 
-const hookClick = (e) => {
-    const origin = e.target.closest('a');
-    const isBaseTargetBlank = document.querySelector('head base[target="_blank"]');
-    
-    if (origin && origin.href) {
+// 1. Permanently lock down window.open so ads can't spawn new browser windows
+Object.defineProperty(window, 'open', {
+    value: function(url) { 
         try {
-            const linkUrl = new URL(origin.href);
-            // 🚫 AD BLOCKER LOGIC: If the link goes to a different domain, KILL IT.
-            if (linkUrl.hostname !== window.location.hostname) {
-                e.preventDefault();
-                e.stopPropagation(); // Stop the click from bubbling up
-                console.log('Blocked external ad click:', origin.href);
-                return;
+            if (url) {
+                const targetUrl = new URL(url, window.location.origin);
+                // Allow internal site links to work normally
+                if (targetUrl.hostname === window.location.hostname) {
+                    window.location.href = url; 
+                    return window;
+                }
             }
-        } catch (err) {
-            // Invalid URL, ignore
-        }
+        } catch(e) {}
+        // External ad/scam link -> KILL IT (returns null instead of opening browser)
+        return null; 
+    },
+    writable: false,
+    configurable: false
+});
 
-        // 🟢 PAKEPLUS LOGIC: Allow internal site navigation to work normally
-        if (origin.target === '_blank' || isBaseTargetBlank) {
+// 2. Intercept ALL clicks at the absolute lowest level
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+        // Block Android intents (harmless to keep on Windows)
+        if (link.href.startsWith('intent://') || (!link.href.startsWith('http') && !link.href.startsWith('/') && !link.href.startsWith('#'))) {
             e.preventDefault();
-            console.log('Handling internal link:', origin.href);
-            location.href = origin.href;
+            e.stopPropagation();
+            return false;
+        }
+        try {
+            const url = new URL(link.href, window.location.origin);
+            // Block external domains
+            if (url.hostname !== window.location.hostname) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        } catch (err) {}
+    }
+
+    // Kill invisible ad overlays
+    if (e.target.tagName !== 'VIDEO' && !e.target.closest('video') && !e.target.closest('button')) {
+        const rect = e.target.getBoundingClientRect();
+        if (rect.width === window.innerWidth && rect.height === window.innerHeight) {
+            e.preventDefault();
+            e.stopPropagation();
         }
     }
-};
+}, true);
 
-// 🚫 BLOCK window.open completely (Ads use this to pop up new browser windows)
-window.open = function (url, target, features) {
-    console.log('Blocked window.open ad attempt:', url);
-    return null; // Returning null prevents the app from navigating away!
-};
-
-document.addEventListener('click', hookClick, { capture: true });
+// 3. Watchdog to prevent the site from breaking your blockers
+setInterval(() => {
+    try {
+        if (window.open.toString().includes('location.href')) {
+            Object.defineProperty(window, 'open', {
+                value: function() { return null; },
+                writable: false, configurable: false
+            });
+        }
+    } catch (e) {}
+}, 1000);
